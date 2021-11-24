@@ -1,9 +1,5 @@
-# Source: https://github.com/pclucas14/pixel-cnn-pp
-import torch
-
 from layers import *
 from utils import *
-import numpy as np
 
 
 class PixelCNNLayer_up(nn.Module):
@@ -153,6 +149,7 @@ if __name__ == '__main__':
     y_t = torch.rand(15, 3, 32, 32).to(device)
     y_t = y_t * 2 - 1
     loss = discretized_mix_logistic_loss(y_t, x_t)
+    print('loss : %s' % loss.data.item())
 
     ''' testing model and deconv dimensions '''
     x = torch.FloatTensor(32, 3, 32, 32).uniform_(-1., 1.).to(device)

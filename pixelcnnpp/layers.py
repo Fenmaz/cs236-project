@@ -1,10 +1,6 @@
-# Source: https://github.com/pclucas14/pixel-cnn-pp
+from torch.nn.utils import weight_norm as wn
 
 from utils import *
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.utils import weight_norm as wn
 
 
 class nin(nn.Module):

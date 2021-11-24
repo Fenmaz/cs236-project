@@ -1,5 +1,3 @@
-# Source: https://github.com/pclucas14/pixel-cnn-pp
-
 import os
 import sys
 import argparse
