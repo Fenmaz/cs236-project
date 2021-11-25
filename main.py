@@ -13,6 +13,7 @@ from tqdm import tqdm
 from model import LMPCNN
 from utils import discretized_mix_logistic_loss, discretized_mix_logistic_loss_1d, \
     sample_from_discretized_mix_logistic, sample_from_discretized_mix_logistic_1d
+from masking import get_masks
 
 
 def parse_args():
@@ -23,8 +24,8 @@ def parse_args():
                         help='Location for parameter checkpoints and samples')
     parser.add_argument('-d', '--dataset', type=str,
                         default='cifar', help='Can be either cifar|mnist')
-    parser.add_argument('-p', '--print_every', type=int, default=50,
-                        help='how many iterations between print statements')
+    parser.add_argument('-p', '--log_every', type=int, default=50,
+                        help='How many iterations between logging losses?')
     parser.add_argument('-t', '--save_interval', type=int, default=10,
                         help='Every how many epochs to write checkpoint/samples?')
     parser.add_argument('-r', '--load_params', type=str, default=None,
@@ -124,6 +125,7 @@ def main():
 
     model = LMPCNN(nr_resnet=args.nr_resnet, nr_filters=args.nr_filters,
                    input_channels=input_channels, nr_logistic_mix=args.nr_logistic_mix).to(device)
+    idx = np.array([(x, y) for x in range(obs[1]) for y in range(obs[2])])
 
     if args.load_params:
         # load_part_of_model(model, args.load_params)
@@ -139,17 +141,21 @@ def main():
     for epoch in range(args.max_epochs):
         inner_bar.set_description('Epoch {}'.format(epoch))
         train_loss = 0.
-        for batch_idx, (example, _) in enumerate(train):
+        for batch_idx, (x, _) in enumerate(train):
             inner_bar.update(1)
-            example = example.to(device)
-            output = model(example)
-            loss = loss_op(example, output)
+            # Generate a random ordering & corresponding masks
+            np.random.shuffle(idx)
+            mask_init, mask_undilated, mask_dilated = get_masks(idx, obs[1], obs[2], device=device)
+
+            x = x.to(device)
+            output = model(x, mask_init, mask_undilated, mask_dilated)
+            loss = loss_op(x, output)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             train_loss += loss.data.item()
-            if (batch_idx + 1) % args.print_every == 0:
-                deno = args.print_every * args.batch_size * np.prod(obs) * np.log(2.)
+            if (batch_idx + 1) % args.log_every == 0:
+                deno = args.log_every * args.batch_size * np.prod(obs) * np.log(2.)
                 writer.add_scalar('train/bpd', (train_loss / deno), writes)
                 inner_bar.set_postfix(loss='{:.4f}'.format(train_loss / deno))
                 train_loss = 0.
@@ -163,10 +169,13 @@ def main():
             model.eval()
             test_loss = 0.
             batch_idx = 0
-            for batch_idx, (example, _) in enumerate(test):
-                example = example.to(device)
-                output = model(example)
-                loss = loss_op(example, output)
+            for batch_idx, (x, _) in enumerate(test):
+                np.random.shuffle(idx)
+                mask_init, mask_undilated, mask_dilated = get_masks(idx, obs[1], obs[2], device=device)
+
+                x = x.to(device)
+                output = model(x, mask_init, mask_undilated, mask_dilated)
+                loss = loss_op(x, output)
                 test_loss += loss.data.item()
                 del loss, output
 
