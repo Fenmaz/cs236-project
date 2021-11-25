@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from model import PixelCNN
+from model import LMPCNN
 from utils import discretized_mix_logistic_loss, discretized_mix_logistic_loss_1d, \
     sample_from_discretized_mix_logistic, sample_from_discretized_mix_logistic_1d
 
@@ -122,8 +122,8 @@ def main():
     sample_dim = [sample_batch]
     sample_dim.extend(obs)
 
-    model = PixelCNN(nr_resnet=args.nr_resnet, nr_filters=args.nr_filters,
-                     input_channels=input_channels, nr_logistic_mix=args.nr_logistic_mix).to(device)
+    model = LMPCNN(nr_resnet=args.nr_resnet, nr_filters=args.nr_filters,
+                   input_channels=input_channels, nr_logistic_mix=args.nr_logistic_mix).to(device)
 
     if args.load_params:
         # load_part_of_model(model, args.load_params)

@@ -8,7 +8,7 @@ from layers import GatedResnet, Nin
 from locally_masked_convolution import LocallyMaskedConv2d
 
 
-class PixelCnnLayerUp(nn.Module):
+class LMPCNNUp(nn.Module):
     """
     Sequence of (downsampling) convolution layers.
     PixelCNN/PixelCNN++ uses downsampling layers in 2 streams (down and down-right).
@@ -16,7 +16,7 @@ class PixelCnnLayerUp(nn.Module):
     """
 
     def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity, conv_op):
-        super(PixelCnnLayerUp, self).__init__()
+        super(LMPCNNUp, self).__init__()
         self.nr_resnet = nr_resnet
         self.u_stream = nn.ModuleList([GatedResnet(nr_filters, conv_op,
                                                    resnet_nonlinearity, skip_connection=0)
@@ -27,14 +27,14 @@ class PixelCnnLayerUp(nn.Module):
         return u_list
 
 
-class PixelCnnLayerDown(nn.Module):
+class LMPCNNDown(nn.Module):
     """
     Sequence of convolution layers in the second half of the U-net, with
     residual connections to blocks in the first half.
     """
 
     def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity, conv_op):
-        super(PixelCnnLayerDown, self).__init__()
+        super(LMPCNNDown, self).__init__()
         self.u_stream = nn.ModuleList([GatedResnet(nr_filters, conv_op,
                                                    resnet_nonlinearity, skip_connection=1)
                                        for _ in range(nr_resnet)])
@@ -46,9 +46,9 @@ class PixelCnnLayerDown(nn.Module):
         return u
 
 
-class PixelCNN(nn.Module):
+class LMPCNN(nn.Module):
     def __init__(self, nr_resnet=5, nr_filters=80, nr_logistic_mix=10, input_channels=3):
-        super(PixelCNN, self).__init__()
+        super(LMPCNN, self).__init__()
         resnet_nonlinearity = concat_elu
         kernel_size = (5, 5)
         max_dilation = 2
@@ -63,11 +63,11 @@ class PixelCNN(nn.Module):
             return wn(LocallyMaskedConv2d(cin, cout, kernel_size=kernel_size))
 
         down_nr_resnet = [nr_resnet] + [nr_resnet + 1] * 2
-        self.down_layers = nn.ModuleList([PixelCnnLayerDown(down_nr_resnet[i], nr_filters,
-                                                            resnet_nonlinearity, conv_op) for i in range(3)])
+        self.down_layers = nn.ModuleList([LMPCNNDown(down_nr_resnet[i], nr_filters,
+                                                     resnet_nonlinearity, conv_op) for i in range(3)])
 
-        self.up_layers = nn.ModuleList([PixelCnnLayerUp(nr_resnet, nr_filters,
-                                                        resnet_nonlinearity, conv_op) for _ in range(3)])
+        self.up_layers = nn.ModuleList([LMPCNNUp(nr_resnet, nr_filters,
+                                                 resnet_nonlinearity, conv_op) for _ in range(3)])
 
         self.downsize_u_stream = nn.ModuleList([conv_op_dilated(nr_filters, nr_filters) for _ in range(2)])
         self.upsize_u_stream = nn.ModuleList([conv_op_dilated(nr_filters, nr_filters) for _ in range(2)])
