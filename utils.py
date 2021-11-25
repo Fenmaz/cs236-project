@@ -188,38 +188,3 @@ def sample_from_discretized_mix_logistic(l, nr_mix):
     # put back in Pytorch ordering
     out = out.permute(0, 3, 1, 2)
     return out
-
-
-''' utilities for shifting the image around, efficient alternative to masking convolutions '''
-
-
-def down_shift(x, pad=None):
-    xs = [int(y) for y in x.size()]
-    # when downshifting, the last row is removed
-    x = x[:, :, :xs[2] - 1, :]
-    # padding left, padding right, padding top, padding bottom
-    pad = nn.ZeroPad2d((0, 0, 1, 0)) if pad is None else pad
-    return pad(x)
-
-
-def right_shift(x, pad=None):
-    xs = [int(y) for y in x.size()]
-    # when righshifting, the last column is removed
-    x = x[:, :, :, :xs[3] - 1]
-    # padding left, padding right, padding top, padding bottom
-    pad = nn.ZeroPad2d((1, 0, 0, 0)) if pad is None else pad
-    return pad(x)
-
-
-def load_part_of_model(model, path):
-    params = torch.load(path)
-    added = 0
-    for name, param in params.items():
-        if name in model.state_dict().keys():
-            try:
-                model.state_dict()[name].copy_(param)
-                added += 1
-            except Exception as e:
-                print(e)
-                pass
-    print('added %s of params:' % (added / float(len(model.state_dict().keys()))))
