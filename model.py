@@ -10,9 +10,7 @@ from locally_masked_convolution import LocallyMaskedConv2d
 
 class LMPCNNUp(nn.Module):
     """
-    Sequence of (downsampling) convolution layers.
-    PixelCNN/PixelCNN++ uses downsampling layers in 2 streams (down and down-right).
-    LM PixelCNN uses dilated convolutions.
+    Sequence of convolution layers with residual connections in the first half of the U-net.
     """
 
     def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity, conv_op):
@@ -29,7 +27,7 @@ class LMPCNNUp(nn.Module):
 
 class LMPCNNDown(nn.Module):
     """
-    Sequence of convolution layers in the second half of the U-net, with
+    Sequence of convolution layers with residual connections in the second half of the U-net, with
     residual connections to blocks in the first half.
     """
 
@@ -47,6 +45,13 @@ class LMPCNNDown(nn.Module):
 
 
 class LMPCNN(nn.Module):
+    """
+    Locally Masked Pixel Convolution Neural Networks.
+    The model is structured as a U-net, with residual connections between the first and second halves.
+    The blocks are connected with dilated convolutions, instead of downsampling/upsampling layers.
+    Each block consists of multiple convolution layers with residual connections.
+    The masks are used to enforce autoregressive properties, by masking the input to the convolution filters.
+    """
     resnet_nonlinearity = concat_elu
     kernel_size = (5, 5)
     max_dilation = 2
