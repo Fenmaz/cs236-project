@@ -142,7 +142,7 @@ class PixelCNN(nn.Module):
 
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    ''' testing loss with tf version '''
+    ''' testing loss util function '''
     np.random.seed(1)
     x_t = torch.rand(15, 100, 32, 32, dtype=torch.float32).to(device)
     x_t = x_t * 3

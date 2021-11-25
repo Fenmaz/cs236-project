@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="fenmaz@ubuntu.trungcn.com:3766 key" remoteFilesAllowedToDisappearOnAutoupload="false" compareModeInSync="TIMESTAMP">
+  <component name="PublishConfigData" autoUpload="Always" serverName="fenmaz@ubuntu.trungcn.com:3766 key" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="fenmaz@ubuntu.trungcn.com:3766 key">
         <serverdata>
@@ -9,8 +9,8 @@
           </mappings>
           <excludedPaths>
             <excludedPath path="/cs236/project/venv" />
-            <excludedPath path="/cs236/project/pixelcnnpp/data" />
-            <excludedPath path="/cs236/project/pixelcnnpp/models" />
+            <excludedPath path="/cs236/project/data" />
+            <excludedPath path="/cs236/project/models" />
           </excludedPaths>
         </serverdata>
       </paths>
@@ -21,8 +21,8 @@
           </mappings>
           <excludedPaths>
             <excludedPath path="/cs236/project/venv" />
-            <excludedPath path="/cs236/project/pixelcnnpp/data" />
-            <excludedPath path="/cs236/project/pixelcnnpp/models" />
+            <excludedPath path="/cs236/project/data" />
+            <excludedPath path="/cs236/project/models" />
           </excludedPaths>
         </serverdata>
       </paths>
