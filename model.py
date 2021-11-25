@@ -1,7 +1,10 @@
 import torch
 
-from layers import *
-from utils import *
+from torch.nn.utils import weight_norm as wn
+from torch.nn import functional as F
+from torch import nn
+from utils import concat_elu
+from layers import GatedResnet, Nin
 from locally_masked_convolution import LocallyMaskedConv2d
 
 
@@ -72,7 +75,7 @@ class PixelCNN(nn.Module):
         self.u_init = conv_op_init(input_channels + 1, nr_filters)
 
         num_mix = 3 if input_channels == 1 else 10
-        self.nin_out = nin(nr_filters, num_mix * nr_logistic_mix)
+        self.nin_out = Nin(nr_filters, num_mix * nr_logistic_mix)
         self.init_padding = None
 
     def forward(self, x, mask_init, mask_undilated, mask_dilated, sample=False):
@@ -105,23 +108,3 @@ class PixelCNN(nn.Module):
 
         x_out = self.nin_out(F.elu(u))
         return x_out
-
-
-if __name__ == '__main__':
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    ''' testing loss util function '''
-    np.random.seed(1)
-    x_t = torch.rand(15, 100, 32, 32, dtype=torch.float32).to(device)
-    x_t = x_t * 3
-    y_t = torch.rand(15, 3, 32, 32).to(device)
-    y_t = y_t * 2 - 1
-    loss = discretized_mix_logistic_loss(y_t, x_t)
-    print('loss : %s' % loss.data.item())
-
-    ''' testing loss compatibility '''
-    x = torch.rand((32, 3, 32, 32), device=device) * 2 - 1
-    model = PixelCNN(nr_resnet=3, nr_filters=100, input_channels=x.size(1))
-    model = model.to(device)
-    out = model(x, None, None, None)
-    loss = discretized_mix_logistic_loss(x, out)
-    print('loss : %s' % loss.data.item())

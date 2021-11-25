@@ -1,11 +1,13 @@
+import torch
+
 from torch.nn.utils import weight_norm as wn
+from torch import nn
+from utils import concat_elu
 
-from utils import *
 
-
-class nin(nn.Module):
+class Nin(nn.Module):
     def __init__(self, dim_in, dim_out):
-        super(nin, self).__init__()
+        super(Nin, self).__init__()
         self.lin_a = wn(nn.Linear(dim_in, dim_out))
         self.dim_out = dim_out
 
@@ -34,7 +36,7 @@ class GatedResnet(nn.Module):
         self.conv_input = conv_op(2 * num_filters, num_filters)  # because of concat_elu
 
         if skip_connection != 0:
-            self.nin_skip = nin(2 * skip_connection * num_filters, num_filters)
+            self.nin_skip = Nin(2 * skip_connection * num_filters, num_filters)
 
         # self.dropout = nn.Dropout2d(0.5)
         self.conv_out = conv_op(2 * num_filters, 2 * num_filters)

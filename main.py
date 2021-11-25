@@ -1,14 +1,18 @@
 import os
 import sys
 import argparse
+import torch
+import numpy as np
 
-import torch.optim as optim
-from torch.optim import lr_scheduler
+from torch.optim import lr_scheduler, Adam
 from torchvision import datasets, transforms, utils
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
-from model import *
 from tqdm import tqdm
+
+from model import PixelCNN
+from utils import discretized_mix_logistic_loss, discretized_mix_logistic_loss_1d, \
+    sample_from_discretized_mix_logistic, sample_from_discretized_mix_logistic_1d
 
 
 def parse_args():
@@ -46,30 +50,19 @@ def parse_args():
     return args
 
 
-def logs_setup(args):
-    model_name = 'pcnn_lr:{:.5f}_nr-resnet{}_nr-filters{}'.format(args.lr, args.nr_resnet, args.nr_filters)
-    assert not os.path.exists(os.path.join('runs', model_name)), '{} already exists!'.format(model_name)
-    writer = SummaryWriter(log_dir=os.path.join('runs', model_name))
-    return writer, model_name
-
-
 def setup(args):
     # reproducibility
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    return logs_setup(args)
+    model_name = 'pcnn_lr:{:.5f}_nr-resnet{}_nr-filters{}'.format(args.lr, args.nr_resnet, args.nr_filters)
+    assert not os.path.exists(os.path.join('runs', model_name)), '{} already exists!'.format(model_name)
+    writer = SummaryWriter(log_dir=os.path.join('runs', model_name))
+
+    return writer, model_name
 
 
-def rescaling(x):
-    return (x - .5) * 2.
-
-
-def rescaling_inv(x):
-    return .5 * x + .5
-
-
-def data_loader(args):
+def data_loader(args, rescaling):
     kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
 
     ds_transforms = transforms.Compose([transforms.ToTensor(), rescaling])
@@ -85,7 +78,9 @@ def data_loader(args):
                                                   shuffle=True, **kwargs)
 
         loss_op = discretized_mix_logistic_loss_1d
-        sample_op = lambda x: sample_from_discretized_mix_logistic_1d(x, args.nr_logistic_mix)
+
+        def sample_op(_x):
+            return sample_from_discretized_mix_logistic_1d(_x, args.nr_logistic_mix)
 
     elif 'cifar' in args.dataset:
         train_loader = torch.utils.data.DataLoader(datasets.CIFAR10(args.data_dir, train=True,
@@ -97,7 +92,10 @@ def data_loader(args):
                                                   shuffle=True, **kwargs)
 
         loss_op = discretized_mix_logistic_loss
-        sample_op = lambda x: sample_from_discretized_mix_logistic(x, args.nr_logistic_mix)
+
+        def sample_op(_x):
+            return sample_from_discretized_mix_logistic(_x, args.nr_logistic_mix)
+
     else:
         raise Exception('{} dataset not in {{mnist, cifar10}}'.format(args.dataset))
 
@@ -109,7 +107,14 @@ def main():
 
     args = parse_args()
     writer, model_name = setup(args)
-    train, test, loss_op, sample_op = data_loader(args)
+
+    def rescaling(_x):
+        return (_x - .5) * 2.
+
+    def rescaling_inv(_x):
+        return .5 * _x + .5
+
+    train, test, loss_op, sample_op = data_loader(args, rescaling)
 
     obs = (1, 28, 28) if 'mnist' in args.dataset else (3, 32, 32)
     input_channels = obs[0]
@@ -125,7 +130,7 @@ def main():
         model.load_state_dict(torch.load(args.load_params))
         print('model parameters loaded')
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = Adam(model.parameters(), lr=args.lr)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=args.lr_decay)
 
     writes = 0
@@ -134,11 +139,11 @@ def main():
     for epoch in range(args.max_epochs):
         inner_bar.set_description('Epoch {}'.format(epoch))
         train_loss = 0.
-        for batch_idx, (input, _) in enumerate(train):
+        for batch_idx, (example, _) in enumerate(train):
             inner_bar.update(1)
-            input = input.to(device)
-            output = model(input)
-            loss = loss_op(input, output)
+            example = example.to(device)
+            output = model(example)
+            loss = loss_op(example, output)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -158,10 +163,10 @@ def main():
             model.eval()
             test_loss = 0.
             batch_idx = 0
-            for batch_idx, (input, _) in enumerate(test):
-                input = input.to(device)
-                output = model(input)
-                loss = loss_op(input, output)
+            for batch_idx, (example, _) in enumerate(test):
+                example = example.to(device)
+                output = model(example)
+                loss = loss_op(example, output)
                 test_loss += loss.data.item()
                 del loss, output
 
