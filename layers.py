@@ -40,13 +40,14 @@ class GatedResnet(nn.Module):
         # self.dropout = nn.Dropout2d(0.5)
         self.conv_out = conv_op(2 * num_filters, 2 * num_filters)
 
-    def forward(self, og_x, a=None):
-        x = self.conv_input(self.nonlinearity(og_x))
+    def forward(self, og_x, a=None, mask=None):
+        x = self.conv_input(self.nonlinearity(og_x), mask=mask)
         if a is not None:
+            x = x.clone()
             x += self.nin_skip(self.nonlinearity(a))
         x = self.nonlinearity(x)
         # x = self.dropout(x)
-        x = self.conv_out(x)
+        x = self.conv_out(x, mask = mask)
         a, b = torch.chunk(x, 2, dim=1)
         c3 = a * torch.sigmoid(b)
         return og_x + c3

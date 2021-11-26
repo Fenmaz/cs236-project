@@ -13,7 +13,7 @@ class LMPCNNUp(nn.Module):
     Sequence of convolution layers with residual connections in the first half of the U-net.
     """
 
-    def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity, conv_op):
+    def __init__(self, nr_resnet, nr_filters, conv_op, resnet_nonlinearity=concat_elu):
         super(LMPCNNUp, self).__init__()
         self.nr_resnet = nr_resnet
         self.u_stream = nn.ModuleList([GatedResnet(nr_filters, conv_op,
@@ -31,7 +31,7 @@ class LMPCNNDown(nn.Module):
     residual connections to blocks in the first half.
     """
 
-    def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity, conv_op):
+    def __init__(self, nr_resnet, nr_filters, conv_op, resnet_nonlinearity=concat_elu):
         super(LMPCNNDown, self).__init__()
         self.u_stream = nn.ModuleList([GatedResnet(nr_filters, conv_op,
                                                    resnet_nonlinearity, skip_connection=1)
@@ -52,28 +52,27 @@ class LMPCNN(nn.Module):
     Each block consists of multiple convolution layers with residual connections.
     The masks are used to enforce autoregressive properties, by masking the input to the convolution filters.
     """
-    resnet_nonlinearity = concat_elu
     kernel_size = (5, 5)
     max_dilation = 2
+    mask_weight = True
 
     def __init__(self, nr_resnet=5, nr_filters=80, nr_logistic_mix=10, input_channels=3):
         super(LMPCNN, self).__init__()
 
         def conv_op_init(cin, cout):
-            return wn(LocallyMaskedConv2d(cin, cout, kernel_size=self.kernel_size))
+            return wn(LocallyMaskedConv2d(cin, cout, kernel_size=self.kernel_size, mask_weight=self.mask_weight))
 
         def conv_op_dilated(cin, cout):
-            return wn(LocallyMaskedConv2d(cin, cout, kernel_size=self.kernel_size, dilation=self.max_dilation))
+            return wn(LocallyMaskedConv2d(cin, cout, kernel_size=self.kernel_size, dilation=self.max_dilation,
+                                          mask_weight=self.mask_weight))
 
         def conv_op(cin, cout):
-            return wn(LocallyMaskedConv2d(cin, cout, kernel_size=self.kernel_size))
+            return wn(LocallyMaskedConv2d(cin, cout, kernel_size=self.kernel_size, mask_weight=self.mask_weight))
 
         down_nr_resnet = [nr_resnet] + [nr_resnet + 1] * 2
-        self.down_layers = nn.ModuleList([LMPCNNDown(down_nr_resnet[i], nr_filters,
-                                                     self.resnet_nonlinearity, conv_op) for i in range(3)])
+        self.down_layers = nn.ModuleList([LMPCNNDown(down_nr_resnet[i], nr_filters, conv_op) for i in range(3)])
 
-        self.up_layers = nn.ModuleList([LMPCNNUp(nr_resnet, nr_filters,
-                                                 self.resnet_nonlinearity, conv_op) for _ in range(3)])
+        self.up_layers = nn.ModuleList([LMPCNNUp(nr_resnet, nr_filters, conv_op) for _ in range(3)])
 
         self.downsize_u_stream = nn.ModuleList([conv_op_dilated(nr_filters, nr_filters) for _ in range(2)])
         self.upsize_u_stream = nn.ModuleList([conv_op_dilated(nr_filters, nr_filters) for _ in range(2)])
@@ -101,9 +100,9 @@ class LMPCNN(nn.Module):
         # Up pass
         u_list = [self.u_init(x, mask=mask_init)]
         for i in range(2):
-            u_list.append(self.up_layers[i](u_list[-1], mask=mask_undilated))
-            u_list.append(self.downsize_u_stream[i](u_list[-1], mask=mask_dilated))
-        u_list.append(self.up_layers[2](u_list[-1], mask=mask_undilated))
+            u_list += self.up_layers[i](u_list[-1], mask=mask_undilated)
+            u_list += [self.downsize_u_stream[i](u_list[-1], mask=mask_dilated)]
+        u_list += self.up_layers[2](u_list[-1], mask=mask_undilated)
 
         # Down pass
         u = u_list.pop()
