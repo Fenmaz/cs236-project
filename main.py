@@ -190,7 +190,9 @@ def main():
                 sample = torch.zeros(sample_dim).to(device)
                 for i in range(obs[1]):
                     for j in range(obs[2]):
-                        out = model(sample, sample=True)
+                        np.random.shuffle(idx)
+                        mask_init, mask_undilated, mask_dilated = get_masks(idx, obs[1], obs[2], device=device)
+                        out = model(sample, mask_init, mask_undilated, mask_dilated, sample=True)
                         out_sample = sample_op(out)
                         sample[:, :, i, j] = out_sample.data[:, :, i, j]
                 sample_t = rescaling_inv(sample)
