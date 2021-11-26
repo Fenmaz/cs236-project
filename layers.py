@@ -21,14 +21,13 @@ class Nin(nn.Module):
         return out.permute(0, 3, 1, 2)
 
 
-'''
-skip connection parameter : 0 = no skip connection 
+class GatedResnet(nn.Module):
+    """
+    Args:
+        skip_connection:    0 = no skip connection
                             1 = skip connection where skip input size === input size
                             2 = skip connection where skip input size === 2 * input size
-'''
-
-
-class GatedResnet(nn.Module):
+    """
     def __init__(self, num_filters, conv_op, nonlinearity=concat_elu, skip_connection=0):
         super(GatedResnet, self).__init__()
         self.skip_connection = skip_connection

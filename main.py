@@ -13,7 +13,8 @@ from tqdm import tqdm
 
 from model import LMPCNN
 from utils import discretized_mix_logistic_loss, discretized_mix_logistic_loss_1d, \
-    sample_from_discretized_mix_logistic, sample_from_discretized_mix_logistic_1d
+    sample_from_discretized_mix_logistic, sample_from_discretized_mix_logistic_1d, \
+    rescaling, rescaling_inv
 from masking import get_masks
 
 
@@ -114,12 +115,6 @@ def main():
 
     args = parse_args()
     writer, model_name = setup(args)
-
-    def rescaling(_x):
-        return (_x - .5) * 2.
-
-    def rescaling_inv(_x):
-        return .5 * _x + .5
 
     train, test, loss_op, sample_op = data_loader(args, rescaling)
 

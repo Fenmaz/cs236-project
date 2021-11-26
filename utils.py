@@ -8,6 +8,14 @@ def concat_elu(x):
     return F.elu(torch.cat([x, -x], dim=1))
 
 
+def rescaling(_x):
+    return (_x - .5) * 2.
+
+
+def rescaling_inv(_x):
+    return .5 * _x + .5
+
+
 def discretized_mix_logistic_loss(x, l):
     """ log-likelihood for mixture of discretized logistics, assumes the data has been rescaled to [-1,1] interval """
     x = x.permute(0, 2, 3, 1)
