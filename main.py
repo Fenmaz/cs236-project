@@ -3,6 +3,7 @@ import sys
 import argparse
 import torch
 import numpy as np
+import shutil
 
 from torch.optim import lr_scheduler, Adam
 from torchvision import datasets, transforms, utils
@@ -30,6 +31,8 @@ def parse_args():
                         help='Every how many epochs to write checkpoint/samples?')
     parser.add_argument('-r', '--load_params', type=str, default=None,
                         help='Restore training from previous model checkpoint?')
+    parser.add_argument('--overwrite', type=bool, default=False,
+                        help='Overwrite previous runs with the same hyper parameters')
     # model
     parser.add_argument('-q', '--nr_resnet', type=int, default=5,
                         help='Number of residual blocks per stage of the model')
@@ -56,8 +59,11 @@ def setup(args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    model_name = 'pcnn_lr:{:.5f}_nr-resnet{}_nr-filters{}'.format(args.lr, args.nr_resnet, args.nr_filters)
-    assert not os.path.exists(os.path.join('runs', model_name)), '{} already exists!'.format(model_name)
+    model_name = 'lmpcnn_nr-resnet{}_nr-filters{}'.format(args.nr_resnet, args.nr_filters)
+    if os.path.exists(os.path.join('runs', model_name)) and args.overwrite:
+        shutil.rmtree(os.path.join('runs', model_name))
+    else:
+        assert not os.path.exists(os.path.join('runs', model_name)), '{} already exists!'.format(model_name)
     writer = SummaryWriter(log_dir=os.path.join('runs', model_name))
 
     return writer, model_name
