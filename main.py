@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument('-o', '--save_dir', type=str, default='models',
                         help='Location for parameter checkpoints and samples')
     parser.add_argument('-d', '--dataset', type=str,
-                        default='cifar', help='Can be either cifar|mnist')
+                        default='mnist', help='Can be either cifar|mnist')
     parser.add_argument('-p', '--log_every', type=int, default=50,
                         help='How many iterations between logging losses?')
     parser.add_argument('-t', '--save_interval', type=int, default=10,
