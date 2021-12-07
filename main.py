@@ -9,10 +9,11 @@ from torch.optim import lr_scheduler, Adam
 from torchvision import datasets, transforms, utils
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
+from torchinfo import summary
 from tqdm import tqdm
 
 from model import LMPCNN
-from utils import discretized_mix_logistic_loss, discretized_mix_logistic_loss_1d, \
+from utils import discretized_mix_logistic_loss, discretized_mix_logistic_log_probs, \
     sample_from_discretized_mix_logistic, sample_from_discretized_mix_logistic_1d, \
     rescaling, rescaling_inv
 from masking import get_masks
@@ -70,7 +71,7 @@ def setup(args):
     return writer, model_name
 
 
-def data_loader(args, rescaling):
+def data_loader(args):
     kwargs = {'num_workers': 8, 'pin_memory': True, 'drop_last': True}
 
     ds_transforms = transforms.Compose([transforms.ToTensor(), rescaling])
@@ -85,7 +86,9 @@ def data_loader(args, rescaling):
                                                                  transform=ds_transforms), batch_size=args.batch_size,
                                                   shuffle=True, **kwargs)
 
-        loss_op = discretized_mix_logistic_loss_1d
+        def loss_op(x, l):
+            log_probs = discretized_mix_logistic_log_probs(x, l)
+            return -torch.logsumexp(log_probs, dim=len(log_probs.size()) - 1).sum()
 
         def sample_op(_x):
             return sample_from_discretized_mix_logistic_1d(_x, args.nr_logistic_mix)
@@ -116,7 +119,7 @@ def main():
     args = parse_args()
     writer, model_name = setup(args)
 
-    train, test, loss_op, sample_op = data_loader(args, rescaling)
+    train, test, loss_op, sample_op = data_loader(args)
 
     obs = (1, 28, 28) if 'mnist' in args.dataset else (3, 32, 32)
     input_channels = obs[0]
@@ -126,6 +129,7 @@ def main():
 
     model = LMPCNN(nr_resnet=args.nr_resnet, nr_filters=args.nr_filters,
                    input_channels=input_channels, nr_logistic_mix=args.nr_logistic_mix).to(device)
+    summary(model, [[args.batch_size] + list(obs)] + [[obs[0], 5 * 5, obs[1] * obs[2]]] * 3)
     idx = np.array([(x, y) for x in range(obs[1]) for y in range(obs[2])])
 
     if args.load_params:
@@ -188,13 +192,13 @@ def main():
                 torch.save(model.state_dict(), 'models/{}_{}.pth'.format(model_name, epoch))
                 model.eval()
                 sample = torch.zeros(sample_dim).to(device)
-                for i in range(obs[1]):
-                    for j in range(obs[2]):
-                        np.random.shuffle(idx)
-                        mask_init, mask_undilated, mask_dilated = get_masks(idx, obs[1], obs[2], device=device)
-                        out = model(sample, mask_init, mask_undilated, mask_dilated, sample=True)
-                        out_sample = sample_op(out)
-                        sample[:, :, i, j] = out_sample.data[:, :, i, j]
+
+                np.random.shuffle(idx)
+                mask_init, mask_undilated, mask_dilated = get_masks(idx, obs[1], obs[2], device=device)
+                for i, j in idx:
+                    out = model(sample, mask_init, mask_undilated, mask_dilated, sample=True)
+                    out_sample = sample_op(out)
+                    sample[:, :, i, j] = out_sample.data[:, :, i, j]
                 sample_t = rescaling_inv(sample)
                 utils.save_image(sample_t, 'images/{}_{}.png'.format(model_name, epoch),
                                  nrow=5, padding=0)

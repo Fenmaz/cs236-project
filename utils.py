@@ -77,7 +77,7 @@ def discretized_mix_logistic_loss(x, l):
     return -torch.logsumexp(log_probs, dim=len(log_probs.size()) - 1).sum()
 
 
-def discretized_mix_logistic_loss_1d(x, l):
+def discretized_mix_logistic_log_probs(x, l):
     """ log-likelihood for mixture of discretized logistics, assumes the data has been rescaled to [-1,1] interval """
     x = x.permute(0, 2, 3, 1)
     l = l.permute(0, 2, 3, 1)
@@ -119,7 +119,7 @@ def discretized_mix_logistic_loss_1d(x, l):
     log_probs = cond * log_cdf_plus + (1. - cond) * inner_out
     log_probs = torch.sum(log_probs, dim=3) + F.log_softmax(logit_probs, dim=len(logit_probs.size()) - 1)
 
-    return -torch.logsumexp(log_probs, dim=len(log_probs.size()) - 1).sum()
+    return log_probs
 
 
 def to_one_hot(tensor, n, fill_with=1.):
